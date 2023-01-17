@@ -9,6 +9,7 @@ from RainbowFileReaders.R6Constants import RSEGeometryFlags
 from RainbowFileReaders.MathHelpers import normalize_color, pad_color, IntIterable
 from RainbowFileReaders.RenderableArray import RenderableArray
 
+
 class RSEGeometryListHeader(BinaryFileDataStructure):
     """Stores the information about a Geometry List"""
     def __init__(self):
@@ -22,8 +23,9 @@ class RSEGeometryListHeader(BinaryFileDataStructure):
         self.geometry_list_string: SizedCString = SizedCString(filereader)
         self.count: int = filereader.read_uint32()
 
+
 class R6GeometryObject(BinaryFileDataStructure):
-    """Reads and stores a Rainbow Six Geometry Object"""
+    """Parent class that provides base for the other R6 Geometry objects (SOB or QOB)"""
     def __init__(self):
         super(R6GeometryObject, self).__init__()
         self.size: int = None
@@ -31,16 +33,58 @@ class R6GeometryObject(BinaryFileDataStructure):
         self.name_string: SizedCString = None
         self.version_string: SizedCString = None
         self.versionNumber: int = None
-        self.unknown4: int = None
-        self.unknown5: int = None
         self.vertexCount: int = None
         self.vertices: List[List[float]] = []
+        self.meshCount: int = None
+        self.meshClass = R6MeshDefinition
+        self.meshes: List[R6MeshDefinition] = []
+
+    def read(self, filereader: BinaryFileReader):
+        """Reads some common data of Geometry object.
+        Should be expanded by specific geometry object calls"""
+        super().read(filereader)
+
+    def read_header_info(self, filereader: BinaryFileReader):
+        """Reads top level information for this data structure"""
+        self.size = filereader.read_uint32()
+        self.ID = filereader.read_uint32()
+        self.name_string = SizedCString(filereader)
+        # If the version string was actually set to version, then a version
+        # number is stored, along with object name
+        if self.name_string.string == 'Version':
+            self.version_string = self.name_string
+            self.versionNumber = filereader.read_uint32()
+            self.name_string = SizedCString(filereader)
+
+    def read_vertices(self, filereader: BinaryFileReader):
+        """ Reads a count of the number of vertices, followed by the list of vertices """
+        self.vertexCount = filereader.read_uint32()
+        self.vertices = []
+        for _ in range(self.vertexCount):
+            self.vertices.append(filereader.read_vec_f(3))
+
+    def read_meshes(self, filereader: BinaryFileReader):
+        """ Reads a count of the number of meshes, followed by the list of meshes """
+        self.meshCount = filereader.read_uint32()
+        for _ in range(self.meshCount):
+            newMesh = self.meshClass()
+            newMesh.read(filereader)
+            self.meshes.append(newMesh)
+
+
+class R6SOBGeometryObject(R6GeometryObject):
+    """Reads and stores a Rainbow Six Geometry Object"""
+    def __init__(self):
+        super(R6SOBGeometryObject, self).__init__()
+        self.unknown4: int = None
+        self.unknown5: int = None
         self.vertexParamsCount: int = None
         self.vertexParams: List[R6VertexParameterCollection] = None
         self.faceCount: int = None
         self.faces: List[R6FaceDefinition] = None
-        self.meshCount: int = None
-        self.meshes: List[R6MeshDefinition] = None
+
+        self.meshClass = R6MeshDefinition
+        self.meshes: List[R6MeshDefinition] = []
 
     def generate_renderable_arrays_for_mesh(self, mesh: R6MeshDefinition) -> List[RenderableArray]:
         """ Generates a list of RenderableArray objects from the internal data structure """
@@ -110,23 +154,15 @@ class R6GeometryObject(BinaryFileDataStructure):
 
     def read_header_info(self, filereader: BinaryFileReader):
         """Reads top level information for this data structure"""
-        self.size = filereader.read_uint32()
-        self.ID = filereader.read_uint32()
-        self.name_string = SizedCString(filereader)
-        #If the version string was actually set to version, then a version number is stored, along with object name
+        super().read_header_info(filereader)
+
         if self.name_string.string == 'Version':
-            self.version_string = self.name_string
-            self.versionNumber = filereader.read_uint32()
-            self.name_string = SizedCString(filereader)
+            # SOB specific header data
             self.unknown4 = filereader.read_uint32()
             self.unknown5 = filereader.read_uint32()
 
     def read_vertices(self, filereader: BinaryFileReader):
-        """ Reads a count of the number of vertices, followed by the list of vertices """
-        self.vertexCount = filereader.read_uint32()
-        self.vertices = []
-        for _ in range(self.vertexCount):
-            self.vertices.append(filereader.read_vec_f(3))
+        super().read_vertices(filereader)
 
     def read_vertex_params(self, filereader: BinaryFileReader):
         """ Reads a count of the number of vertex parameters, followed by the list of vertex parameters """
@@ -147,13 +183,35 @@ class R6GeometryObject(BinaryFileDataStructure):
             self.faces.append(newFace)
 
     def read_meshes(self, filereader: BinaryFileReader):
-        """ Reads a count of the number of meshes, followed by the list of meshes """
-        self.meshCount = filereader.read_uint32()
-        self.meshes = []
-        for _ in range(self.meshCount):
-            newMesh = R6MeshDefinition()
-            newMesh.read(filereader)
-            self.meshes.append(newMesh)
+        super().read_meshes()
+
+
+class R6QOBGeometryObject(R6GeometryObject):
+    """Reads and stores a RainbowSix QOB Geometry Objects
+    (see https://github.com/AlexKimov/RSE-file-formats/blob/master/010Editor-templates/QOB(rsp).bt)"""
+    def __init__(self):
+        super(R6QOBGeometryObject, self).__init__()
+
+        self.meshClass = R6QOBMeshDefinition
+        self.meshes: List[R6QOBMeshDefinition] = []
+
+    def read(self, filereader: BinaryFileReader):
+        # Read header data and vertices data (common for both SOB and QOB)
+        super().read(filereader)
+
+        self.read_header_info(filereader)
+        self.read_vertices(filereader)
+        self.read_meshes(filereader)
+
+    def read_header_info(self, filereader: BinaryFileReader):
+        super().read_header_info(filereader)
+
+    def read_vertices(self, filereader: BinaryFileReader):
+        super().read_vertices(filereader)
+
+    def read_meshes(self, filereader: BinaryFileReader):
+        super().read_meshes(filereader)
+
 
 class R6VertexParameterCollection(BinaryFileDataStructure):
     """ Contains a given pair/set of attributes for a particular vertex. Contains, normal, UV and color values """
@@ -172,6 +230,7 @@ class R6VertexParameterCollection(BinaryFileDataStructure):
         self.unknown10 = filereader.read_float() # no idea?
         self.color = filereader.read_rgb_color_24bpp_uint()
 
+
 class R6FaceDefinition(BinaryFileDataStructure):
     """ Contains a list of properties for an individual face. Contains indices for the vertices and parameters, as well as the face normal and material assigned """
     def __init__(self):
@@ -184,6 +243,7 @@ class R6FaceDefinition(BinaryFileDataStructure):
         self.paramIndices: List[int] = filereader.read_vec_uint32(3)
         self.faceNormal: List[float] = filereader.read_vec_f(4)
         self.materialIndex: int = filereader.read_uint32()
+
 
 class R6MeshDefinition(BinaryFileDataStructure):
     """ Contains a list of faces that make up this mesh, as well as some associated properties """
@@ -231,3 +291,46 @@ class R6MeshDefinition(BinaryFileDataStructure):
 
         #read unknown9
         self.unknown9 = filereader.read_uint32()
+
+
+class R6QOBMeshDefinition(BinaryFileDataStructure):
+    """ Contains a list of faces that make up this mesh, as well as some associated properties """
+    def __init__(self):
+        super(R6QOBMeshDefinition, self).__init__()
+
+        self.materialIndex: int = 0
+        self.facesCount: int = 0
+        self.facesNormals: List[List[float]] = []
+        self.facesVertices: List[List[float]] = []
+        self.facesTextureIndicies: List[List[float]] = []
+
+        self.textureVertexCount: int = 0
+        self.textureVertexNormals: List[List[float]] = []
+        self.textureUVs: List[List[float]] = []
+        self.textureFaceColors: List[List[float]] = []
+
+    def __repr__(self):
+        return f'<R6QOBMeshDefinition: {self.facesCount} face(s), {len(self.facesVertices)} vertices, {len(self.textureUVs)} UVs vertices>'
+
+    def read(self, filereader: BinaryFileReader):
+        super().read(filereader)
+
+        self.materialIndex = filereader.read_uint32()
+
+        # Faces
+        self.facesCount = filereader.read_uint32()
+        for _ in range(self.facesCount):
+            self.facesNormals.append(filereader.read_vec_f(4))
+        for _ in range(self.facesCount):
+            self.facesVertices.append(filereader.read_vec_uint16(3))
+        for _ in range(self.facesCount):
+            self.facesTextureIndicies.append(filereader.read_vec_uint16(3))
+
+        # Texture data
+        self.textureVertexCount = filereader.read_uint32()
+        for _ in range(self.textureVertexCount):
+            self.textureVertexNormals.append(filereader.read_vec_f(3))
+        for _ in range(self.textureVertexCount):
+            self.textureUVs.append(filereader.read_vec_f(2))
+        for _ in range(self.textureVertexCount):
+            self.textureFaceColors.append(filereader.read_vec_f(4))
