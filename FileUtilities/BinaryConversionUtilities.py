@@ -242,6 +242,7 @@ class BinaryFileDataStructure(object):
         """Helper method to output class information for debugging"""
         log_pprint(vars(self), logging.INFO)
 
+
 class SizedCString(object):
     """Reads a null-terminated string from a file. Assumes there is a 4 byte integer specifying size"""
     def __init__(self, filereader: BinaryFileReader = None):
@@ -251,6 +252,12 @@ class SizedCString(object):
 
         if filereader:
             self.read(filereader)
+
+    def __str__(self):
+        return self.string
+
+    def __repr__(self):
+        return f"(SizedCString) {self.string}"
 
     def read(self, filereader: BinaryFileReader):
         """Reads a length and then a null-terminated string of that length from the BinaryFileReader"""
@@ -262,4 +269,4 @@ class SizedCString(object):
 def bytes_to_shortint(byteStream: bytes) -> Tuple[int]:
     """Converts 2 bytes to a short integer"""
     # Ignore this in typing, as the 'H' will guarantee ints are returned
-    return struct.unpack('H', byteStream) # type: ignore
+    return struct.unpack('H', byteStream)  # type: ignore

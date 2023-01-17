@@ -16,7 +16,7 @@ class QOBModelFile(FileFormatReader):
         self.materialListHeader: RSEMaterialListHeader = None
         self.materials: List[RSEMaterialDefinition] = []
         self.geometryListHeader: RSEGeometryListHeader = None
-        self.geometryObjects: List[R6GeometryObject] = []
+        self.geometryObjects: List[R6QOBGeometryObject] = []
         self.footer: QOBFooterDefinition = None
 
     def read_data(self):
