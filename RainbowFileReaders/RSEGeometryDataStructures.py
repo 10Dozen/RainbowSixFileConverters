@@ -212,6 +212,9 @@ class R6QOBGeometryObject(R6GeometryObject):
     def read_meshes(self, filereader: BinaryFileReader):
         super().read_meshes(filereader)
 
+    def __repr__(self):
+        return f"<R6QOBGeometryObject: {len(self.meshes)} mesh(es)>"
+
 
 class R6VertexParameterCollection(BinaryFileDataStructure):
     """ Contains a given pair/set of attributes for a particular vertex. Contains, normal, UV and color values """
@@ -294,7 +297,7 @@ class R6MeshDefinition(BinaryFileDataStructure):
 
 
 class R6QOBMeshDefinition(BinaryFileDataStructure):
-    """ Contains a list of faces that make up this mesh, as well as some associated properties """
+    """ Contains a list of faces that make up this QOB mesh, as well as some associated properties """
     def __init__(self):
         super(R6QOBMeshDefinition, self).__init__()
 

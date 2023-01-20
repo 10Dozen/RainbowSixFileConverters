@@ -6,6 +6,7 @@ from os import path
 
 from typing import List
 
+
 def gather_files_in_path(extension: str, folder: str) -> List[str]:
     """Walks a folder and it's sub directories and finds all files with matching extension, case-insensitive"""
     filesToProcess = []
@@ -16,3 +17,18 @@ def gather_files_in_path(extension: str, folder: str) -> List[str]:
         for name in dirs:
             pass
     return filesToProcess
+
+
+def filter_valid_files(extension: str, filepaths: List[str]):
+    validFiles = []
+    invalidFiles = []
+    for f in filepaths:
+        exists = os.path.exists(f)
+        isFile = os.path.isfile(f)
+        validExtension = f.upper().endswith(extension.upper())
+        if validExtension and exists and isFile:
+            validFiles.append(f)
+        else:
+            invalidFiles.append((f, validExtension, exists, isFile))
+
+    return validFiles, invalidFiles

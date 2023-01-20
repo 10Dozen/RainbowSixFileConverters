@@ -8,13 +8,14 @@ import logging
 
 from typing import List, Callable
 
-from FileUtilities.DirectoryUtils import gather_files_in_path
+from FileUtilities.DirectoryUtils import gather_files_in_path, filter_valid_files
 
 log = logging.getLogger(__name__)
 
 def processorNotImplementedDefault(path):
     """Default processor function. Should never be called"""
     log.error("No processor has been assigned, so no processing will be performed on: %s", path)
+
 
 class DirectoryProcessor(object):
     """
@@ -25,6 +26,7 @@ class DirectoryProcessor(object):
     fileExt: str = ".none"
     processFunction: Callable = processorNotImplementedDefault
     allFiles: List[str] = []
+    includeFiles: List[str] = []
 
     def gather_all_files(self):
         """Gathers all files ready for processing"""
@@ -34,6 +36,20 @@ class DirectoryProcessor(object):
             files = files + newFiles
         self.allFiles = files
 
+        # Add forced included files, but get rid of non-existing files and duplicates
+        if self.includeFiles:
+            validFiles, invalidFiles = filter_valid_files(filepaths=self.includeFiles, extension=self.fileExt)
+            files.extend(validFiles)
+            self.allFiles = list(set(files))
+
+            for f, validExtension, exists, isFile in invalidFiles:
+                reason = (
+                    "Failed to find file" if not exists else None,
+                    f"File extension is not valid (expected {self.fileExt})" if exists and not validExtension else None,
+                    "File is a directory?" if exists and not isFile else None
+                )
+                log.error("File %s was excluded from processing list due to error: %s", f, ", ".join([r for r in reason if r]))
+
     def run_async(self):
         """
         Process the files asynchronously.
@@ -41,6 +57,10 @@ class DirectoryProcessor(object):
         Number of worker processes is equal to the CPU processor (including HTs) count
         """
         self.gather_all_files()
+
+        if not self.allFiles:
+            log.error("Failed to find any valid %s file. Exiting.", self.fileExt)
+            return
 
         # Large files tend to be grouped in folders, which can lead to many large files being assigned to one worker
         # A shuffle helps more evenly distribute processing workload
@@ -53,7 +73,6 @@ class DirectoryProcessor(object):
 
         pool = multiprocessing.Pool(numWorkers)
         pool.map(self.processFunction, self.allFiles)
-
 
     def run_sequential(self):
         """Process the files in sequential order"""
