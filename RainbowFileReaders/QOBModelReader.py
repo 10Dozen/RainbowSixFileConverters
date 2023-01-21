@@ -39,7 +39,7 @@ class QOBModelFile(FileFormatReader):
         self.materialListHeader.read(fileReader)
         if self.verboseOutput:
             self.materialListHeader.print_structure_info()
-        print("(QOBModelReader) [##     ] Material list reading done (count: {self.materialListHeader.numMaterials})")
+        print(f"(QOBModelReader) [##     ] Material list reading done (count: {self.materialListHeader.numMaterials})")
 
         print("(QOBModelReader) [##>    ] Going to find and load CXP Definitions")
         _, gameDataPath, modPath = R6Settings.determine_data_paths_for_file(self.filepath)
@@ -63,7 +63,7 @@ class QOBModelFile(FileFormatReader):
         self.geometryListHeader.read(fileReader)
         if self.verboseOutput:
             self.geometryListHeader.print_structure_info()
-        print("(QOBModelReader) [#####  ] Geometry List read done (count: {self.geometryListHeader.count})")
+        print(f"(QOBModelReader) [#####  ] Geometry List read done (count: {self.geometryListHeader.count})")
 
         print("(QOBModelReader) [#####> ] Going to read Geometry objects...")
         for _ in range(self.geometryListHeader.count):

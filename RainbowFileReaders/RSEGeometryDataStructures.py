@@ -305,7 +305,7 @@ class R6QOBMeshDefinition(BinaryFileDataStructure):
         self.facesCount: int = 0
         self.facesNormals: List[List[float]] = []
         self.facesVertices: List[List[float]] = []
-        self.facesTextureIndicies: List[List[float]] = []
+        self.facesTextureIndices: List[List[float]] = []
 
         self.textureVertexCount: int = 0
         self.textureVertexNormals: List[List[float]] = []
@@ -327,7 +327,7 @@ class R6QOBMeshDefinition(BinaryFileDataStructure):
         for _ in range(self.facesCount):
             self.facesVertices.append(filereader.read_vec_uint16(3))
         for _ in range(self.facesCount):
-            self.facesTextureIndicies.append(filereader.read_vec_uint16(3))
+            self.facesTextureIndices.append(filereader.read_vec_uint16(3))
 
         # Texture data
         self.textureVertexCount = filereader.read_uint32()

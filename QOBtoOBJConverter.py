@@ -51,8 +51,89 @@ def convert_QOB(filename):
     log.info("===============================================")
 
 
-def write_OBJ(output_filename, input_modelfile):
-    pass
+def write_OBJ(filename, QOBObject: QOBModelFile):
+    log.info("\n\n======== WRITE OBJ ==========================")
+    writer = OBJModelWriter.OBJModelWriter()
+    writer.open_file(filename)
+
+    try:
+        for geoObject in QOBObject.geometryObjects:
+            writer.begin_new_object(geoObject.name_string.string)
+
+            # Dump vertices
+            log.info("Going to write %d vertices", len(geoObject.vertices))
+            for vertex in geoObject.vertices:
+                writer.write_vertex(vertex)
+
+            # In QOB faces stored in separate meshes
+            # so we need to merge data from all of them
+            # This dict will have consolidated data for each face
+            facesData = {
+                "vIndices": [],
+                "vtIndices": [],
+                "vnIndices": []
+            }
+
+            # UV indices are 0-based per mesh, so we need to add offset for each mesh after the first one
+            vnIdxCount = 0
+            vtIdxCount = 0
+
+            log.info("Going to write mesh's VN and VT data")
+            for mesh in geoObject.meshes:
+                log.info("  Mesh %s", mesh)
+                log.info("  Face vertex indices: %s", mesh.facesVertices)
+
+                # Vertex indices have continuos numeration, so just adding face's vertex info as is
+                for vertexIndices in mesh.facesVertices:
+                    log.info("  Map vertex indices to face: %s", vertexIndices)
+                    facesData.get("vIndices").append(vertexIndices)
+
+                # VN data is stored in mesh data, need to extract and manually map to specific face
+                for vn in mesh.facesNormals:
+                    log.info("  Adding vertex normal: %s", vn)
+                    writer.write_normal(vn)  # Exctract VN data
+
+                    log.info("  Map vn to face by index: %s", vnIdxCount)
+                    facesData.get("vnIndices").append([vnIdxCount] * 3)  # Map same vn for each 3 face's vertices
+                    vnIdxCount += 1
+
+                # VT data is stored in mesh data and VT indices are mesh related
+                # Extract VT data
+                for vt in mesh.textureUVs:
+                    log.info("  Adding UV coordinates: %s", vt)
+                    writer.write_texture_coordinate(vt)
+
+                # Map vt data to faces, but update vtIndex with offset            
+                for textureIndices in mesh.facesTextureIndices:
+                    # Add shift to vt index to corespond with merged list of vts
+                    shiftedTextureIndices = [(vtIdx + vtIdxCount) for vtIdx in textureIndices]
+
+                    log.info("  Map vt to face. Offset [%d]. vt: %s", vtIdxCount, shiftedTextureIndices)
+                    facesData.get("vtIndices").append(shiftedTextureIndices)
+
+                # Update vt index offset
+                vtIdxCount += len(mesh.textureUVs)
+                log.info(" vtIndex offset now %d", vtIdxCount)
+
+            log.info("Faces data:\n    V: %d\n   VT: %d\n   VN: %d",
+                     len(facesData.get("vIndices")),
+                     len(facesData.get("vtIndices")),
+                     len(facesData.get("vnIndices"))
+                     )
+            log.info("%s", facesData)
+
+            # Write faces data: v/vt/vn
+            for i in range(len(facesData.get('vIndices'))):
+                writer.write_face(
+                    vertex_indices=facesData.get("vIndices")[i],
+                    texture_coord_indices=facesData.get("vtIndices")[i],
+                    normal_indices=facesData.get("vnIndices")[i]
+                )
+
+            log.info("Finishing writing .OBJ")
+
+    finally:
+        writer.close_file()
 
 
 def main():
@@ -88,12 +169,6 @@ def main():
         print()
 
     fp.run(mode=settings["runMode"])
-
-    # convert_QOB(filepath=r"G:\VM_XP_SharedFolder\host_dta\mdl\rsw_sg551.qob")
-    # test = QOBModelFile()
-    # test.read_file(verboseOutput=True,
-    #                filepath=r"G:\VM_XP_SharedFolder\host_dta\mdl\rsw_sg551.qob"
-    #                )
 
 
 if __name__ == "__main__":
