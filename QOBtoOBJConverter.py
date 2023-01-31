@@ -65,6 +65,11 @@ def write_OBJ(filename, QOBObject: QOBModelFile):
             for vertex in geoObject.vertices:
                 writer.write_vertex(vertex)
 
+            # In QOB vn and vt data is stored in separate meshes
+            # These 2 caches will be used to collect and then write vn/vt sections in order
+            vnData = []
+            vtData = []
+
             # In QOB faces stored in separate meshes
             # so we need to merge data from all of them
             # This dict will have consolidated data for each face
@@ -91,7 +96,7 @@ def write_OBJ(filename, QOBObject: QOBModelFile):
                 # VN data is stored in mesh data, need to extract and manually map to specific face
                 for vn in mesh.facesNormals:
                     log.info("  Adding vertex normal: %s", vn)
-                    writer.write_normal(vn)  # Exctract VN data
+                    vnData.append(vn)  # Exctract VN data
 
                     log.info("  Map vn to face by index: %s", vnIdxCount)
                     facesData.get("vnIndices").append([vnIdxCount] * 3)  # Map same vn for each 3 face's vertices
@@ -101,7 +106,7 @@ def write_OBJ(filename, QOBObject: QOBModelFile):
                 # Extract VT data
                 for vt in mesh.textureUVs:
                     log.info("  Adding UV coordinates: %s", vt)
-                    writer.write_texture_coordinate(vt)
+                    vtData.append(vt)
 
                 # Map vt data to faces, but update vtIndex with offset            
                 for textureIndices in mesh.facesTextureIndices:
@@ -121,6 +126,14 @@ def write_OBJ(filename, QOBObject: QOBModelFile):
                      len(facesData.get("vnIndices"))
                      )
             log.info("%s", facesData)
+
+            # Write vn data
+            for vn in vnData:
+                writer.write_normal(vn)
+
+            # Write vt data
+            for vt in vtData:
+                writer.write_texture_coordinate(vt)
 
             # Write faces data: v/vt/vn
             for i in range(len(facesData.get('vIndices'))):

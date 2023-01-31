@@ -183,7 +183,7 @@ class R6SOBGeometryObject(R6GeometryObject):
             self.faces.append(newFace)
 
     def read_meshes(self, filereader: BinaryFileReader):
-        super().read_meshes()
+        super().read_meshes(filereader)
 
 
 class R6QOBGeometryObject(R6GeometryObject):
